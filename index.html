@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>詞彙注音填空小達人 - 小四國語直式注音測驗</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Canvas Confetti for winning animation -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@500;700;900&family=Zen+Maru+Gothic:wght@700;900&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Noto Sans TC', 'Zen Maru Gothic', sans-serif;
+            background-color: #f0fdf4;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        /* 卡片與陰影效果 */
+        .card-shadow {
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-3d {
+            transition: all 0.1s ease;
+            box-shadow: 0 6px 0 #059669;
+        }
+        .btn-3d:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #059669;
+        }
+
+        /* 可拖曳注音卡片樣式 */
+        .draggable-card {
+            touch-action: none;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.2s;
+            cursor: grab;
+        }
+        .draggable-card:active {
+            cursor: grabbing;
+        }
+        .draggable-card.dragging {
+            opacity: 0.85;
+            scale: 1.1;
+            z-index: 50;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.25);
+        }
+
+        /* 放置區（Target Spot）樣式 */
+        .drop-zone {
+            transition: all 0.25s ease;
+        }
+        .drop-zone.drag-over {
+            background-color: #fef08a !important;
+            border-color: #eab308 !important;
+            transform: scale(1.08);
+        }
+
+        /* 動畫效果 */
+        @keyframes pulse-correct {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        .animate-correct {
+            animation: pulse-correct 0.4s ease-in-out;
+        }
+
+        @keyframes shake-wrong {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+        .animate-wrong {
+            animation: shake-wrong 0.4s ease-in-out;
+        }
+
+        /* 米字格背景效果 */
+        .mi-zi-ge {
+            background-image: 
+                linear-gradient(to right, rgba(239, 68, 68, 0.18) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(239, 68, 68, 0.18) 1px, transparent 1px),
+                linear-gradient(45deg, rgba(239, 68, 68, 0.12) 1px, transparent 1px),
+                linear-gradient(-45deg, rgba(239, 68, 68, 0.12) 1px, transparent 1px);
+            background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%;
+            background-position: center;
+        }
+
+        /* ==========================================
+           標準垂直注音容器樣式
+        ========================================== */
+        .zhuyin-vertical-container {
+            position: relative;
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            line-height: 1.0;
+            font-family: 'Noto Sans TC', sans-serif;
+            padding-top: 0.15em;
+        }
+
+        /* 聲符/韻符符號（直排） */
+        .zhuyin-symbols {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            letter-spacing: -0.05em;
+        }
+
+        /* 輕聲符號（正上方） */
+        .zhuyin-tone-light {
+            position: absolute;
+            top: -0.45em;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.75em;
+            line-height: 1;
+            font-weight: 900;
+        }
+
+        /* 二、三、四聲聲調符號（右側中間） */
+        .zhuyin-tone-side {
+            position: absolute;
+            right: -0.58em;
+            top: 45%;
+            transform: translateY(-50%);
+            font-size: 0.75em;
+            line-height: 1;
+            font-weight: 900;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-between p-3 md:p-6 text-gray-800">
+
+    <!-- 頂部標題列與資訊 -->
+    <header class="w-full max-w-4xl flex flex-col sm:flex-row items-center justify-between gap-3 bg-white/90 backdrop-blur-sm p-4 rounded-3xl card-shadow border-2 border-emerald-200">
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center text-white text-2xl shadow-md">
+                <i class="fa-solid fa-spell-check"></i>
+            </div>
+            <div>
+                <h1 class="text-xl sm:text-2xl font-black text-emerald-800 tracking-wide">詞彙注音填空小達人</h1>
+                <p class="text-xs sm:text-sm font-bold text-emerald-600">看國字詞彙 ‧ 拖曳正確直式注音</p>
+            </div>
+        </div>
+        
+        <!-- 得分與進度看板 -->
+        <div class="flex items-center gap-3 w-full sm:w-auto justify-around sm:justify-end">
+            <div class="flex items-center gap-2 bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-200">
+                <i class="fa-solid fa-star text-amber-500 text-lg"></i>
+                <div class="text-xs">
+                    <div class="text-amber-600 font-bold">目前得分</div>
+                    <div id="score-text" class="text-lg font-black text-amber-700">0</div>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 bg-sky-50 px-3 py-1.5 rounded-xl border border-sky-200">
+                <i class="fa-solid fa-list-check text-sky-500 text-lg"></i>
+                <div class="text-xs">
+                    <div class="text-sky-600 font-bold">答題進度</div>
+                    <div id="progress-text" class="text-lg font-black text-sky-700">1 / 10</div>
+                </div>
+            </div>
+            <button id="sound-toggle-btn" class="p-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl transition-colors" title="開啟/關閉音效">
+                <i id="sound-icon" class="fa-solid fa-volume-high text-lg"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- 主遊戲區域 -->
+    <main class="w-full max-w-4xl my-auto py-3 flex flex-col items-center">
+        <!-- 進度條 -->
+        <div class="w-full bg-gray-200 h-3 rounded-full mb-5 overflow-hidden shadow-inner">
+            <div id="progress-bar" class="bg-gradient-to-r from-emerald-400 to-teal-500 h-full w-0 transition-all duration-300 rounded-full"></div>
+        </div>
+
+        <!-- 題目區 -->
+        <div class="w-full bg-white rounded-3xl p-5 md:p-8 card-shadow border-4 border-emerald-300 relative overflow-hidden flex flex-col items-center">
+            
+            <!-- 題目提示 -->
+            <div class="text-center mb-5">
+                <span class="bg-amber-100 text-amber-900 text-xs sm:text-sm md:text-base font-bold px-4 py-1.5 rounded-full inline-block shadow-sm">
+                    <i class="fa-solid fa-lightbulb text-amber-500 mr-1.5"></i> 請找出黃色目標字「<span id="target-char-display" class="text-red-600 font-black text-lg"></span>」的正確直式注音！
+                </span>
+            </div>
+
+            <!-- 詞彙米字格卡片展示區 -->
+            <div id="word-cards-container" class="flex flex-wrap items-center justify-center gap-3 sm:gap-5 my-2">
+                <!-- 動態生成詞彙的國字與注音框 -->
+            </div>
+
+            <!-- 詞彙意思與例句輔助提示 -->
+            <div class="mt-6 text-center max-w-2xl bg-emerald-50/60 p-3 rounded-2xl border border-emerald-100">
+                <p class="text-emerald-900 text-xs sm:text-sm font-medium">
+                    <span class="font-bold text-emerald-700">💡 詞意說明：</span><span id="word-meaning">形容大家的說法或意見完全一致。</span>
+                </p>
+                <p class="text-gray-600 text-xs sm:text-sm mt-1">
+                    <span class="font-bold text-gray-500">例句：</span><span id="context-sentence" class="italic">聽到這個好消息，大家「異口同聲」地歡呼起來。</span>
+                </p>
+            </div>
+        </div>
+
+        <!-- 8 個純注音選項區 -->
+        <div class="w-full mt-5">
+            <div class="text-center mb-3 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-hand-pointer text-emerald-600 text-sm"></i>
+                <h2 class="text-xs sm:text-base font-bold text-emerald-900">請挑選正確的「純注音卡片」拖曳填入空格：</h2>
+            </div>
+            
+            <!-- 8 個純直式注音選項卡片 -->
+            <div id="options-container" class="grid grid-cols-4 sm:grid-cols-8 gap-2.5 sm:gap-3.5 justify-items-center">
+                <!-- 動態生成 8 個純注音卡片 -->
+            </div>
+        </div>
+    </main>
+
+    <!-- 頁尾 -->
+    <footer class="text-center text-xs text-emerald-700 font-medium py-2">
+        國小四年級詞彙與注音測驗 &copy; 快樂學習網
+    </footer>
+
+    <!-- 結算彈窗 Modal -->
+    <div id="result-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 md:p-8 text-center card-shadow border-4 border-emerald-400 relative animate-correct">
+            
+            <div class="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-tr from-amber-400 to-yellow-300 rounded-full flex items-center justify-center mx-auto -mt-16 border-4 border-white shadow-lg text-white text-4xl sm:text-5xl">
+                <i class="fa-solid fa-trophy"></i>
+            </div>
+
+            <h2 class="text-2xl md:text-3xl font-black text-gray-800 mt-4">測驗完成！</h2>
+            <p id="result-comment" class="text-emerald-600 font-bold mt-1 text-sm sm:text-base">你太棒了！注音拼音小達人！</p>
+
+            <!-- 成績統計 -->
+            <div class="my-6 bg-emerald-50 rounded-2xl p-4 border border-emerald-100 flex justify-around">
+                <div>
+                    <div class="text-xs text-gray-500 font-bold">答對題數</div>
+                    <div id="final-correct" class="text-2xl font-black text-emerald-600">10 / 10</div>
+                </div>
+                <div class="border-r border-emerald-200"></div>
+                <div>
+                    <div class="text-xs text-gray-500 font-bold">最終得分</div>
+                    <div id="final-score" class="text-2xl font-black text-amber-500">100 分</div>
+                </div>
+            </div>
+
+            <!-- 再玩一次按鈕 -->
+            <button id="restart-btn" class="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-lg rounded-2xl btn-3d flex items-center justify-center gap-2">
+                <i class="fa-solid fa-rotate-right"></i> 再挑戰一次
+            </button>
+        </div>
+    </div>
+
+    <!-- 遊戲核心邏輯腳本 -->
+    <script>
+        // ==========================================
+        // 1. 小四詞彙題庫 (包含完整國字與對應直式注音)
+        // ==========================================
+        const vocabularyBank = [
+            {
+                word: [
+                    { char: '異', zhuyin: 'ㄧˋ' },
+                    { char: '口', zhuyin: 'ㄎㄡˇ' },
+                    { char: '同', zhuyin: 'ㄊㄨㄥˊ' },
+                    { char: '聲', zhuyin: 'ㄕㄥ' }
+                ],
+                targetIndex: 3, // 聲
+                meaning: '形容大家的說法或意見完全一致。',
+                sentence: '聽到要離校校外教學，同學們「異口同聲」大聲歡呼。'
+            },
+            {
+                word: [
+                    { char: '水', zhuyin: 'ㄕㄨㄟˇ' },
+                    { char: '滴', zhuyin: 'ㄉㄧ' },
+                    { char: '石', zhuyin: 'ㄕˊ' },
+                    { char: '穿', zhuyin: 'ㄔㄨㄢ' }
+                ],
+                targetIndex: 3, // 穿
+                meaning: '比喻只要有恆心努力不懈，再難的事也能成功。',
+                sentence: '只要我們持之以恆，終有「水滴石穿」的一天。'
+            },
+            {
+                word: [
+                    { char: '畫', zhuyin: 'ㄏㄨㄚˋ' },
+                    { char: '蛇', zhuyin: 'ㄕㄜˊ' },
+                    { char: '添', zhuyin: 'ㄊㄧㄢ' },
+                    { char: '足', zhuyin: 'ㄗㄨˊ' }
+                ],
+                targetIndex: 2, // 添
+                meaning: '比喻多此一舉，多做了不必要的動作反而不美。',
+                sentence: '這幅畫已經很完美了，再修飾反而「畫蛇添足」。'
+            },
+            {
+                word: [
+                    { char: '目', zhuyin: 'ㄇㄨˋ' },
+                    { char: '不', zhuyin: 'ㄅㄨˋ' },
+                    { char: '轉', zhuyin: 'ㄓㄨㄢˇ' },
+                    { char: '睛', zhuyin: 'ㄐㄧㄥ' }
+                ],
+                targetIndex: 3, // 睛
+                meaning: '眼珠子一動也不動，形容注意力高度集中。',
+                sentence: '台上的魔術表演太精采了，大家看的「目不轉睛」。'
+            },
+            {
+                word: [
+                    { char: '自', zhuyin: 'ㄗˋ' },
+                    { char: '相', zhuyin: 'ㄒㄧㄤ' },
+                    { char: '矛', zhuyin: 'ㄇㄠˊ' },
+                    { char: '盾', zhuyin: 'ㄉㄨㄣˋ' }
+                ],
+                targetIndex: 2, // 矛
+                meaning: '比喻言行前後不一致，互相抵觸。',
+                sentence: '你剛才說的話前後「自相矛盾」，讓人無法相信。'
+            },
+            {
+                word: [
+                    { char: '賞', zhuyin: 'ㄕㄤˇ' },
+                    { char: '心', zhuyin: 'ㄒㄧㄣ' },
+                    { char: '悅', zhuyin: 'ㄩㄝˋ' },
+                    { char: '目', zhuyin: 'ㄇㄨˋ' }
+                ],
+                targetIndex: 2, // 悅
+                meaning: '指看到美好的景物，心情感到舒暢愉快。',
+                sentence: '公園裡百花齊放的景致讓人感到「賞心悅目」。'
+            },
+            {
+                word: [
+                    { char: '無', zhuyin: 'ㄨˊ' },
+                    { char: '精', zhuyin: 'ㄐㄧㄥ' },
+                    { char: '打', zhuyin: 'ㄉㄚˇ' },
+                    { char: '采', zhuyin: 'ㄘㄞˇ' }
+                ],
+                targetIndex: 1, // 精
+                meaning: '形容精神不振，提不起勁。',
+                sentence: '因為昨晚沒睡好，他今天上課看起來「無精打采」。'
+            },
+            {
+                word: [
+                    { char: '五', zhuyin: 'ㄨˇ' },
+                    { char: '彩', zhuyin: 'ㄘㄞˇ' },
+                    { char: '繽', zhuyin: 'ㄅㄧㄣ' },
+                    { char: '紛', zhuyin: 'ㄈㄣ' }
+                ],
+                targetIndex: 2, // 繽
+                meaning: '形容色彩繁多而華麗美麗。',
+                sentence: '花園裡開滿了「五彩繽紛」的花朵。'
+            },
+            {
+                word: [
+                    { char: '名', zhuyin: 'ㄇㄧㄥˊ' },
+                    { char: '勝', zhuyin: 'ㄕㄥˋ' },
+                    { char: '古', zhuyin: 'ㄍㄨˇ' },
+                    { char: '蹟', zhuyin: 'ㄐㄧ' }
+                ],
+                targetIndex: 1, // 勝
+                meaning: '著名的風景名勝與歷史留存古蹟。',
+                sentence: '台南擁有許多的「名勝古蹟」，吸引許多遊客前來。'
+            },
+            {
+                word: [
+                    { char: '井', zhuyin: 'ㄐㄧㄥˇ' },
+                    { char: '底', zhuyin: 'ㄉㄧˇ' },
+                    { char: '之', zhuyin: 'ㄓ' },
+                    { char: '蛙', zhuyin: 'ㄨㄚ' }
+                ],
+                targetIndex: 3, // 蛙
+                meaning: '比喻見識淺薄，眼界狹小的人。',
+                sentence: '我們要多讀書充實自己，不要做「井底之蛙」。'
+            },
+            {
+                word: [
+                    { char: '雪', zhuyin: 'ㄒㄩㄝˇ' },
+                    { char: '中', zhuyin: 'ㄓㄨㄥ' },
+                    { char: '送', zhuyin: 'ㄙㄨㄥˋ' },
+                    { char: '炭', zhuyin: 'ㄊㄢˋ' }
+                ],
+                targetIndex: 2, // 送
+                meaning: '比喻在別人有急迫困難時給予適時的幫助。',
+                sentence: '他在我最困難時給予協助，真是「雪中送炭」。'
+            },
+            {
+                word: [
+                    { char: '半', zhuyin: 'ㄅㄢˋ' },
+                    { char: '途', zhuyin: 'ㄊㄨˊ' },
+                    { char: '而', zhuyin: 'ㄦˊ' },
+                    { char: '廢', zhuyin: 'ㄈㄟˋ' }
+                ],
+                targetIndex: 3, // 廢
+                meaning: '事情做了一半就停止不做了。',
+                sentence: '做事要有始有終，千萬不能「半途而廢」。'
+            },
+            {
+                word: [
+                    { char: '千', zhuyin: 'ㄑㄧㄢ' },
+                    { char: '變', zhuyin: 'ㄅㄧㄢˋ' },
+                    { char: '萬', zhuyin: 'ㄨㄢˋ' },
+                    { char: '化', zhuyin: 'ㄏㄨㄚˋ' }
+                ],
+                targetIndex: 1, // 變
+                meaning: '形容變化極多，層出不窮。',
+                sentence: '天空中的雲朵形狀「千變萬化」，非常迷人。'
+            },
+            {
+                word: [
+                    { char: '守', zhuyin: 'ㄕㄡˇ' },
+                    { char: '株', zhuyin: 'ㄓㄨ' },
+                    { char: '待', zhuyin: 'ㄉㄞˋ' },
+                    { char: '兔', zhuyin: 'ㄊㄨˋ' }
+                ],
+                targetIndex: 1, // 株
+                meaning: '比喻拘泥守舊，或企圖不勞而獲。',
+                sentence: '成功需要靠勤奮努力，不能憑運氣「守株待兔」。'
+            },
+            {
+                word: [
+                    { char: '津', zhuyin: 'ㄐㄧㄣ' },
+                    { char: '津', zhuyin: 'ㄐㄧㄣ' },
+                    { char: '有', zhuyin: 'ㄧㄡˇ' },
+                    { char: '味', zhuyin: 'ㄨㄟˋ' }
+                ],
+                targetIndex: 3, // 味
+                meaning: '形容趣味濃厚、談得興高采烈，或吃得很有滋味。',
+                sentence: '弟弟正「津津有味」地看著一本有趣的繪本。'
+            },
+            {
+                word: [
+                    { char: '同', zhuyin: 'ㄊㄨㄥˊ' },
+                    { char: '甘', zhuyin: 'ㄍㄢ' },
+                    { char: '共', zhuyin: 'ㄍㄨㄥˋ' },
+                    { char: '苦', zhuyin: 'ㄎㄨˇ' }
+                ],
+                targetIndex: 1, // 甘
+                meaning: '共同分享幸福，共同承擔艱苦。',
+                sentence: '真誠的朋友會在生活中「同甘共苦」。'
+            },
+            {
+                word: [
+                    { char: '手', zhuyin: 'ㄕㄡˇ' },
+                    { char: '忙', zhuyin: 'ㄇㄤˊ' },
+                    { char: '腳', zhuyin: 'ㄐㄧㄠˇ' },
+                    { char: '亂', zhuyin: 'ㄌㄨㄢˋ' }
+                ],
+                targetIndex: 3, // 亂
+                meaning: '形容做事慌亂沒有條理。',
+                sentence: '臨出門前他找不到鑰匙，搞得「手忙腳亂」。'
+            },
+            {
+                word: [
+                    { char: '胸', zhuyin: 'ㄒㄩㄥ' },
+                    { char: '有', zhuyin: 'ㄧㄡˇ' },
+                    { char: '成', zhuyin: 'ㄔㄥˊ' },
+                    { char: '竹', zhuyin: 'ㄓㄨˊ' }
+                ],
+                targetIndex: 2, // 成
+                meaning: '比喻做事之前心中已有完整的規劃與把握。',
+                sentence: '對於這次的大考，他早已「胸有成竹」。'
+            },
+            {
+                word: [
+                    { char: '開', zhuyin: 'ㄎㄞ' },
+                    { char: '花', zhuyin: 'ㄏㄨㄚ' },
+                    { char: '結', zhuyin: 'ㄐㄧㄝˊ' },
+                    { char: '果', zhuyin: 'ㄍㄨㄛˇ' }
+                ],
+                targetIndex: 2, // 結
+                meaning: '比喻努力有了回報，有了良好的成果。',
+                sentence: '經過長期的辛勤練習，這項計畫終於「開花結果」。'
+            },
+            {
+                word: [
+                    { char: '溫', zhuyin: 'ㄨㄣ' },
+                    { char: '故', zhuyin: 'ㄍㄨˋ' },
+                    { char: '知', zhuyin: 'ㄓ' },
+                    { char: '新', zhuyin: 'ㄒㄧㄣ' }
+                ],
+                targetIndex: 0, // 溫
+                meaning: '複習舊有的知識，進而領悟出新的道理。',
+                sentence: '讀書要常「溫故知新」，才能不斷進步。'
+            }
+        ];
+
+        // 常用干擾注音庫 (用於組成 8 個純注音選項)
+        const disturbanceZhuyinPool = [
+            'ㄧㄢˊ', 'ㄕˊ', 'ㄅㄧˇ', 'ㄇㄟˇ', 'ㄧˋ', 'ㄏㄞˇ', 'ㄈㄥ', 
+            'ㄕㄢ', 'ㄇㄧㄥˊ', 'ㄓ', 'ㄌㄧˇ', 'ㄏㄜˊ', 'ㄆㄧㄥˊ', 'ㄒㄧˇ', 
+            'ㄌㄜˋ', 'ㄍㄨㄤ', 'ㄧㄥˇ', 'ㄒㄧㄣ', 'ㄞˋ', 'ㄉㄨㄢˇ', 'ㄔㄤˊ'
+        ];
+
+        // ==========================================
+        // 2. 垂直（直書）注音解析與 HTML 渲染引擎
+        // ==========================================
+        function createVerticalZhuyinHTML(zhuyinStr, fontSizeClass = "text-sm sm:text-base") {
+            if (!zhuyinStr) return '';
+
+            let mainSymbols = '';
+            let toneSymbol = '';
+            let isLightTone = false;
+
+            for (let char of zhuyinStr) {
+                if (char === '˙') {
+                    isLightTone = true;
+                } else if (['ˊ', 'ˇ', 'ˋ'].includes(char)) {
+                    toneSymbol = char;
+                } else {
+                    mainSymbols += char;
+                }
+            }
+
+            let symbolsHTML = '';
+            for (let symbol of mainSymbols) {
+                symbolsHTML += `<span>${symbol}</span>`;
+            }
+
+            let lightToneHTML = isLightTone ? `<span class="zhuyin-tone-light">˙</span>` : '';
+            let sideToneHTML = toneSymbol ? `<span class="zhuyin-tone-side">${toneSymbol}</span>` : '';
+
+            return `
+                <div class="zhuyin-vertical-container ${fontSizeClass}">
+                    ${lightToneHTML}
+                    <div class="zhuyin-symbols">
+                        ${symbolsHTML}
+                    </div>
+                    ${sideToneHTML}
+                </div>
+            `;
+        }
+
+        // ==========================================
+        // 3. 遊戲狀態與變數
+        // ==========================================
+        const TOTAL_QUESTIONS = 10;
+        let currentQuestions = [];
+        let currentIndex = 0;
+        let score = 0;
+        let soundEnabled = true;
+
+        let draggedZhuyin = null; // 當前被拖曳的純注音字串
+        let draggedElement = null;
+        let touchClone = null;
+
+        // 音效 Web Audio API
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new AudioContext();
+            }
+        }
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            initAudio();
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+
+            if (type === 'correct') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, now);
+                osc.frequency.setValueAtTime(659.25, now + 0.1);
+                osc.frequency.setValueAtTime(783.99, now + 0.2);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+                osc.start(now);
+                osc.stop(now + 0.5);
+            } else if (type === 'wrong') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(220, now);
+                osc.frequency.setValueAtTime(174.61, now + 0.15);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+                osc.start(now);
+                osc.stop(now + 0.4);
+            } else if (type === 'win') {
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((freq, idx) => {
+                    const subOsc = audioCtx.createOscillator();
+                    const subGain = audioCtx.createGain();
+                    subOsc.connect(subGain);
+                    subGain.connect(audioCtx.destination);
+                    subOsc.type = 'triangle';
+                    subOsc.frequency.setValueAtTime(freq, now + idx * 0.12);
+                    subGain.gain.setValueAtTime(0.2, now + idx * 0.12);
+                    subGain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.3);
+                    subOsc.start(now + idx * 0.12);
+                    subOsc.stop(now + idx * 0.12 + 0.3);
+                });
+            }
+        }
+
+        // DOM 元素
+        const scoreText = document.getElementById('score-text');
+        const progressText = document.getElementById('progress-text');
+        const progressBar = document.getElementById('progress-bar');
+        const targetCharDisplay = document.getElementById('target-char-display');
+        const wordCardsContainer = document.getElementById('word-cards-container');
+        const wordMeaning = document.getElementById('word-meaning');
+        const contextSentence = document.getElementById('context-sentence');
+        const optionsContainer = document.getElementById('options-container');
+        const soundToggleBtn = document.getElementById('sound-toggle-btn');
+        const soundIcon = document.getElementById('sound-icon');
+        const resultModal = document.getElementById('result-modal');
+        const restartBtn = document.getElementById('restart-btn');
+        const finalCorrect = document.getElementById('final-correct');
+        const finalScore = document.getElementById('final-score');
+        const resultComment = document.getElementById('result-comment');
+
+        // 打亂陣列工具
+        function shuffle(array) {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        // ==========================================
+        // 4. 遊戲流程控制器
+        // ==========================================
+        function initGame() {
+            const shuffledBank = shuffle(vocabularyBank);
+            currentQuestions = shuffledBank.slice(0, TOTAL_QUESTIONS);
+            currentIndex = 0;
+            score = 0;
+            
+            updateHeaderUI();
+            loadQuestion(currentIndex);
+            resultModal.classList.add('hidden');
+        }
+
+        function updateHeaderUI() {
+            scoreText.textContent = score;
+            progressText.textContent = `${currentIndex + 1} / ${TOTAL_QUESTIONS}`;
+            const percentage = ((currentIndex) / TOTAL_QUESTIONS) * 100;
+            progressBar.style.width = `${percentage}%`;
+        }
+
+        function loadQuestion(index) {
+            const q = currentQuestions[index];
+            const targetItem = q.word[q.targetIndex];
+
+            targetCharDisplay.textContent = targetItem.char;
+            wordMeaning.textContent = q.meaning;
+            contextSentence.textContent = `「${q.sentence}」`;
+
+            // 渲染題目詞彙卡片 (4個國字 + 目標字的注音放置格)
+            renderWordCards(q);
+
+            // 生成 8 個「純直式注音」選項 (包含 1 個正確注音 + 7 個干擾注音)
+            const options = generate8ZhuyinOptions(targetItem.zhuyin);
+            renderOptions(options);
+
+            updateHeaderUI();
+        }
+
+        // 渲染題目區：完整呈現國字，目標字顯示亮色邊框與注音放置格
+        function renderWordCards(q) {
+            wordCardsContainer.innerHTML = '';
+
+            q.word.forEach((item, idx) => {
+                const isTarget = (idx === q.targetIndex);
+
+                if (isTarget) {
+                    // 目標字卡片 (突出高亮 + 下方 Drop Zone)
+                    const card = document.createElement('div');
+                    card.className = 'flex flex-col items-center gap-1 bg-amber-50 border-4 border-amber-400 rounded-2xl p-2 shadow-md relative';
+                    
+                    card.innerHTML = `
+                        <!-- 國字 -->
+                        <div class="w-16 h-16 sm:w-20 sm:h-20 bg-white border-2 border-amber-300 rounded-xl mi-zi-ge flex items-center justify-center">
+                            <span class="text-3xl sm:text-4xl font-black text-amber-900">${item.char}</span>
+                        </div>
+                        <!-- 直式注音拖曳放置區 (Drop Zone) -->
+                        <div id="drop-zone" class="drop-zone w-16 h-20 sm:w-20 sm:h-24 border-2 border-dashed border-amber-500 bg-amber-100/70 rounded-xl flex flex-col items-center justify-center relative cursor-pointer shadow-inner">
+                            <i id="drop-icon" class="fa-solid fa-arrow-down-long text-lg sm:text-xl text-amber-500 mb-0.5 animate-bounce"></i>
+                            <span id="drop-prompt" class="text-[10px] sm:text-xs font-black text-amber-700">拉入注音</span>
+                            <div id="dropped-content" class="hidden font-black text-amber-900"></div>
+                        </div>
+                    `;
+
+                    wordCardsContainer.appendChild(card);
+
+                    // 綁定 Drop Zone 事件
+                    const dropZone = card.querySelector('#drop-zone');
+                    dropZone.addEventListener('dragover', handleDragOver);
+                    dropZone.addEventListener('dragleave', handleDragLeave);
+                    dropZone.addEventListener('drop', handleDrop);
+
+                } else {
+                    // 非目標國字 (直接顯示國字與其對應直式注音)
+                    const card = document.createElement('div');
+                    card.className = 'flex flex-col items-center gap-1 bg-red-50/30 border-2 border-red-200 rounded-2xl p-2 shadow-sm';
+                    
+                    card.innerHTML = `
+                        <!-- 國字 -->
+                        <div class="w-16 h-16 sm:w-20 sm:h-20 bg-white border-2 border-red-200 rounded-xl mi-zi-ge flex items-center justify-center">
+                            <span class="text-3xl sm:text-4xl font-black text-gray-800">${item.char}</span>
+                        </div>
+                        <!-- 已填好的注音 -->
+                        <div class="w-16 h-20 sm:w-20 sm:h-24 bg-white/80 border border-red-200 rounded-xl flex items-center justify-center text-red-600 font-bold">
+                            ${createVerticalZhuyinHTML(item.zhuyin, "text-sm sm:text-base")}
+                        </div>
+                    `;
+                    wordCardsContainer.appendChild(card);
+                }
+            });
+        }
+
+        // 生成 8 個純直式注音選項 (無國字)
+        function generate8ZhuyinOptions(correctZhuyin) {
+            const set = new Set();
+            const optionsList = [correctZhuyin];
+            set.add(correctZhuyin);
+
+            const shuffledPool = shuffle(disturbanceZhuyinPool);
+            for (let z of shuffledPool) {
+                if (optionsList.length >= 8) break;
+                if (!set.has(z)) {
+                    set.add(z);
+                    optionsList.push(z);
+                }
+            }
+
+            return shuffle(optionsList);
+        }
+
+        // 渲染 8 個純注音選項卡片
+        function renderOptions(options) {
+            optionsContainer.innerHTML = '';
+            options.forEach((zhuyinStr, idx) => {
+                const card = document.createElement('div');
+                card.className = 'draggable-card w-full max-w-[70px] sm:max-w-[80px] h-24 sm:h-28 bg-white hover:bg-emerald-50 border-2 border-emerald-400 rounded-2xl p-1 text-center font-black shadow-sm flex items-center justify-center select-none cursor-grab active:scale-95';
+                
+                // 純直式注音內容
+                card.innerHTML = createVerticalZhuyinHTML(zhuyinStr, "text-base sm:text-lg font-black text-emerald-800");
+
+                card.setAttribute('draggable', 'true');
+                card.dataset.zhuyin = zhuyinStr;
+                card.dataset.id = idx;
+
+                // 滑鼠事件
+                card.addEventListener('dragstart', handleDragStart);
+                card.addEventListener('dragend', handleDragEnd);
+
+                // 觸控事件 (Mobile Touch)
+                card.addEventListener('touchstart', handleTouchStart, { passive: false });
+                card.addEventListener('touchmove', handleTouchMove, { passive: false });
+                card.addEventListener('touchend', handleTouchEnd, { passive: false });
+
+                optionsContainer.appendChild(card);
+            });
+        }
+
+        // ==========================================
+        // 5. 拖曳事件處理 (Mouse & Touch)
+        // ==========================================
+        function handleDragStart(e) {
+            draggedZhuyin = this.dataset.zhuyin;
+            draggedElement = this;
+            this.classList.add('dragging');
+            e.dataTransfer.setData('text/plain', draggedZhuyin);
+            e.dataTransfer.effectAllowed = 'move';
+        }
+
+        function handleDragEnd(e) {
+            this.classList.remove('dragging');
+            draggedZhuyin = null;
+            draggedElement = null;
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            this.classList.add('drag-over');
+        }
+
+        function handleDragLeave() {
+            this.classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            this.classList.remove('drag-over');
+            let droppedZhuyin = e.dataTransfer.getData('text/plain') || draggedZhuyin;
+
+            if (droppedZhuyin) {
+                checkAnswer(droppedZhuyin, draggedElement);
+            }
+        }
+
+        // Touch 控制
+        function handleTouchStart(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            draggedElement = this;
+            draggedZhuyin = this.dataset.zhuyin;
+
+            touchClone = this.cloneNode(true);
+            touchClone.style.position = 'fixed';
+            touchClone.style.width = `${this.offsetWidth}px`;
+            touchClone.style.height = `${this.offsetHeight}px`;
+            touchClone.style.left = `${touch.clientX - this.offsetWidth / 2}px`;
+            touchClone.style.top = `${touch.clientY - this.offsetHeight / 2}px`;
+            touchClone.style.zIndex = '1000';
+            touchClone.style.pointerEvents = 'none';
+            touchClone.style.opacity = '0.9';
+            touchClone.style.transform = 'scale(1.1)';
+            touchClone.classList.add('shadow-2xl', 'border-emerald-500', 'bg-white');
+
+            document.body.appendChild(touchClone);
+            this.classList.add('opacity-40');
+        }
+
+        function handleTouchMove(e) {
+            if (!touchClone) return;
+            e.preventDefault();
+            const touch = e.touches[0];
+
+            touchClone.style.left = `${touch.clientX - touchClone.offsetWidth / 2}px`;
+            touchClone.style.top = `${touch.clientY - touchClone.offsetHeight / 2}px`;
+
+            const dropZone = document.getElementById('drop-zone');
+            if (!dropZone) return;
+
+            const elemBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+            if (elemBelow && (elemBelow === dropZone || dropZone.contains(elemBelow))) {
+                dropZone.classList.add('drag-over');
+            } else {
+                dropZone.classList.remove('drag-over');
+            }
+        }
+
+        function handleTouchEnd(e) {
+            if (!touchClone) return;
+            e.preventDefault();
+
+            const touch = e.changedTouches[0];
+            const dropZone = document.getElementById('drop-zone');
+
+            if (draggedElement) {
+                draggedElement.classList.remove('opacity-40');
+            }
+
+            if (dropZone) dropZone.classList.remove('drag-over');
+
+            if (touchClone && touchClone.parentNode) {
+                touchClone.parentNode.removeChild(touchClone);
+            }
+            touchClone = null;
+
+            if (dropZone) {
+                const elemBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+                if (elemBelow && (elemBelow === dropZone || dropZone.contains(elemBelow))) {
+                    if (draggedZhuyin) {
+                        checkAnswer(draggedZhuyin, draggedElement);
+                    }
+                }
+            }
+
+            draggedElement = null;
+            draggedZhuyin = null;
+        }
+
+        // ==========================================
+        // 6. 答題判定與效果
+        // ==========================================
+        function checkAnswer(selectedZhuyin, targetElement) {
+            const currentQ = currentQuestions[currentIndex];
+            const targetZhuyin = currentQ.word[currentQ.targetIndex].zhuyin;
+            const isCorrect = (selectedZhuyin === targetZhuyin);
+
+            const dropZone = document.getElementById('drop-zone');
+            const dropIcon = document.getElementById('drop-icon');
+            const dropPrompt = document.getElementById('drop-prompt');
+            const droppedContent = document.getElementById('dropped-content');
+
+            if (isCorrect) {
+                playSound('correct');
+                score += 10;
+                scoreText.textContent = score;
+
+                // 填空格內顯示正確直式注音
+                if (dropIcon) dropIcon.classList.add('hidden');
+                if (dropPrompt) dropPrompt.classList.add('hidden');
+                
+                droppedContent.classList.remove('hidden');
+                droppedContent.innerHTML = createVerticalZhuyinHTML(selectedZhuyin, "text-base sm:text-lg font-black text-emerald-900");
+
+                dropZone.className = "drop-zone w-16 h-20 sm:w-20 sm:h-24 border-2 border-emerald-500 bg-emerald-100 rounded-xl flex items-center justify-center relative animate-correct shadow-md";
+
+                // 紙花特效
+                confetti({
+                    particleCount: 45,
+                    spread: 60,
+                    origin: { y: 0.6 }
+                });
+
+                setTimeout(() => {
+                    currentIndex++;
+                    if (currentIndex < TOTAL_QUESTIONS) {
+                        loadQuestion(currentIndex);
+                    } else {
+                        endGame();
+                    }
+                }, 1200);
+
+            } else {
+                playSound('wrong');
+
+                if (dropZone) {
+                    dropZone.className = "drop-zone w-16 h-20 sm:w-20 sm:h-24 border-2 border-red-500 bg-red-50 rounded-xl flex flex-col items-center justify-center relative animate-wrong";
+                }
+
+                if (targetElement) {
+                    targetElement.classList.add('border-red-500', 'bg-red-50', 'animate-wrong');
+                    setTimeout(() => {
+                        targetElement.classList.remove('border-red-500', 'bg-red-50', 'animate-wrong');
+                    }, 600);
+                }
+
+                setTimeout(() => {
+                    if (dropZone) {
+                        dropZone.className = "drop-zone w-16 h-20 sm:w-20 sm:h-24 border-2 border-dashed border-amber-500 bg-amber-100/70 rounded-xl flex flex-col items-center justify-center relative shadow-inner";
+                    }
+                }, 800);
+            }
+        }
+
+        // ==========================================
+        // 7. 結算與控制事件
+        // ==========================================
+        function endGame() {
+            progressBar.style.width = '100%';
+            playSound('win');
+
+            confetti({
+                particleCount: 130,
+                spread: 100,
+                origin: { y: 0.4 }
+            });
+
+            finalCorrect.textContent = `${score / 10} / ${TOTAL_QUESTIONS}`;
+            finalScore.textContent = `${score} 分`;
+
+            if (score === 100) {
+                resultComment.textContent = '太厲害了！你是完美的拼音詞彙大師！🏆';
+            } else if (score >= 80) {
+                resultComment.textContent = '表現非常棒！大部分注音拼音都難不倒你！🌟';
+            } else if (score >= 60) {
+                resultComment.textContent = '順利通過測試！再多練習注音會更熟練喔！👍';
+            } else {
+                resultComment.textContent = '加油！多複習注音符號與聲調，下次一定拿高分！💪';
+            }
+
+            resultModal.classList.remove('hidden');
+        }
+
+        soundToggleBtn.addEventListener('click', () => {
+            soundEnabled = !soundEnabled;
+            if (soundEnabled) {
+                soundIcon.className = "fa-solid fa-volume-high text-lg text-emerald-600";
+            } else {
+                soundIcon.className = "fa-solid fa-volume-xmark text-lg text-gray-400";
+            }
+        });
+
+        restartBtn.addEventListener('click', () => {
+            initGame();
+        });
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initGame();
+        });
+    </script>
+</body>
+</html>
